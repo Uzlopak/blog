@@ -156,7 +156,7 @@ Perfect. We know now, that it is in some cases a stream.
 Now we need to install `throttle` by doing an `npm i throttle` and change again the 
 `example-throttle.js`. 
 
-```
+```js
 'use strict'
 
 const { createReadStream } = require('fs')
@@ -195,6 +195,22 @@ data it triggers a download. So we we open the download window of the Browse and
 
 It is successfully throttling the request!
 
+#### Conclusion: Are we there yet?
 
+We have now the knowledge, that throttling of requests is possible. Only limitation is
+that we can just throttle streams.
+This needs a consideration: Is it enough to support throttling of steams? Or how does it fit
+in the fastify lifecycle. If we look at the lifecycle of a request, we see that we have a
+`preSerialization` lifecycle stage. So the payload we get in the `onSend` hook should
+already be validated and enriched with all the data it needs. So if we need to support
+strings, Buffers and other non-stream-objects, we can transform them first to a stream,
+and then pass them to the `ThrottleStream`. 
+In my opinion it is for the first iteration enough to handle streams. Because, lets be 
+honest, in which cases do we actually need throttling? Were in the wild do we see throttled
+downloads? One-Click-Hosters. They dont throttle the output of their usual rest api calls,
+but they throttle their file downloads.
+We can assume, that devs, who want to throttle downloads, will use it for file downloads.
+
+So our scope regarding what to throttle got clear.
 
 
