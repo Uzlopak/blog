@@ -207,8 +207,8 @@ strings, Buffers and other non-stream-objects, we can transform them first to a 
 and then pass them to the `ThrottleStream`. 
 In my opinion it is for the first iteration enough to handle streams. Because, lets be 
 honest, in which cases do we actually need throttling? Were in the wild do we see throttled
-downloads? One-Click-Hosters. They dont throttle the output of their usual rest api calls,
-but they throttle their file downloads.
+downloads? One-Click-Hosters and Video-Streaming-Platforms. They dont throttle the output
+of their usual rest api calls, but they throttle their file downloads.
 We can assume, that devs, who want to throttle downloads, will use it for file downloads.
 
 So our scope regarding what to throttle got clear.
@@ -233,7 +233,32 @@ about the needs of the users of the package.
 And last but not least when checking the forks and the network of each repository can reveal
 some useful insights and commits.
 
-I found following issues relevant:
-- ThrottleStream should handle the change of the speed, [[1]](https://github.com/TooTallNate/node-throttle/issues/5) [[4]](https://github.com/TooTallNate/node-throttle/issues/4)
-- ThrottleStream should have a "burst"-mode, [[2]](https://github.com/TooTallNate/node-throttle/issues/6) [[3]](https://github.com/tjgq/node-stream-throttle/issues/3)
-- ThrottleStream should be able to have a delay, [[5]](https://github.com/TooTallNate/node-throttle/pull/7)
+I found following relevant issues:
+- `ThrottleStream` should handle the change of speed, [[1]](https://github.com/TooTallNate/node-throttle/issues/5) [[4]](https://github.com/TooTallNate/node-throttle/issues/4)
+- `ThrottleStream` should have a "burst"-mode, [[2]](https://github.com/TooTallNate/node-throttle/issues/6) [[3]](https://github.com/tjgq/node-stream-throttle/issues/3)
+- `ThrottleStream` should be able to have a delay, [[5]](https://github.com/TooTallNate/node-throttle/pull/7), or latency [[6]](https://github.com/tjgq/node-stream-throttle/issues/1)
+- `ThrottleStream` should have a "ThrottleGroup", [[7]](https://github.com/tjgq/node-stream-throttle/blob/master/src/throttle.js)
+
+The first three issues can be solved by a "easing" functionality. Do you remember jquery-ui
+and its [easing functionality](https://jqueryui.com/easing/)? So what we maybe need is to
+add an easing option to `ThrottleStream`. We could decide that we call the option `rate` and
+pass a function to it. First parameter is the time since the transfer started.
+
+You want a burst mode where you send e.g. 5 Mb in the first 3 seconds and then only 100kb/s? 
+Then define a function which exactly does this. 
+You want a letancy of 1 second? Define a function, which returns 0 for the first second and
+then the preferred speed.
+
+ThrottleGroups on the other hand, should not be realized in the ThrottleStream itself.
+ThrottleStream should not know about othe ThrottleStream but should be controlle by
+fastify-rate-limit.
+
+### Enough Research. Time for Development
+
+#### ThrottleStream: Use package or integrate?
+
+If you have a highly maintained package and a healthy community, it makes sense to use
+their packages. But we have here unmaintained packages and basically no progress in features.
+
+Also I want to be sure, that everything is under controle and doesnt have any side effects.
+So I tend to integrate the package.
