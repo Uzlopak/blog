@@ -213,4 +213,27 @@ We can assume, that devs, who want to throttle downloads, will use it for file d
 
 So our scope regarding what to throttle got clear.
 
+### More Research: What is feature complete?
 
+We know now, that throttling is possible and what type of requests we want to throttle, 
+we have to take another round of research. Just because we maybe add a feature to throttle,
+doesnt mean that other devs will use it. Consumer of plugins have the expectation, that their
+use case is already covered or is possible to be realized with a reasonable amount of work.
+
+We need to cover atleast the most basic use cases of the feature. The feature needs to
+be easily configurable. 
+
+We need to find out the pain points devs have usually with thottling. 
+
+First of all, we open again the npm package and search for the throttle stream packages and
+visit the corresponding github/gitlab repository pages and look, which options and/or 
+additional functionalities and classes are also provided by the package. Also pull requests
+are a good source of information. Especially closed issues and pull requests show tendencies,
+about the needs of the users of the package.
+And last but not least when checking the forks and the network of each repository can reveal
+some useful insights and commits.
+
+I found following issues relevant:
+- ThrottleStream should handle the change of the speed, [[1]](https://github.com/TooTallNate/node-throttle/issues/5) [[4]](https://github.com/TooTallNate/node-throttle/issues/4)
+- ThrottleStream should have a "burst"-mode, [[2]](https://github.com/TooTallNate/node-throttle/issues/6) [[3]](https://github.com/tjgq/node-stream-throttle/issues/3)
+- ThrottleStream should be able to have a delay, [[5]](https://github.com/TooTallNate/node-throttle/pull/7)
