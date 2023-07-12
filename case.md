@@ -193,6 +193,8 @@ data it triggers a download. So we we open the download window of the Browse and
 
 ![image](https://github.com/Uzlopak/blog/assets/5059100/0345daa9-e5a0-4e29-a489-207f9968069d)
 
-It is throttling! 
+It is successfully throttling the request!
+
+
 
 
