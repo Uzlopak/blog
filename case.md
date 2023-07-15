@@ -1,4 +1,4 @@
-# Implementing a new feature in a fastifyjs plugin
+# Implementing a new feature in a fastify plugin
 ## Case study: Implement ThrottleStream in @fastify/fastify-rate-limit
 --------------------------------------------------------------------------------
 Implementing a new feature is a daily task for an average developer. Issues
@@ -17,7 +17,7 @@ some aspects and I am happy to discuss them with you.
 ### The Feature Request: Limit the download speed of requests
 
 On 29th of April user Uriel29 created an issue in @fastify/fastify-rate-limit,
-regarding the possibilty to limit the download speed of requests. This feature
+regarding the possibility to limit the download speed of requests. This feature
 was not implemented yet in fastify-rate-limit and mcollina labeled the issue as
 `enhancement` and highly appreciated if that solution would be implemented.
 
@@ -41,19 +41,19 @@ nginx. So we should expect that it is potentially possible.
 Nodejs is famous for its streams. So there are two main questions to be
 researched: 
 
-1. How do you implement a ThrottleStream in nodedjs to controle the bandwith?
+1. How do you implement a ThrottleStream in nodejs to control the bandwidth?
 2. Is fastify core capable handle the response with a ThrottleStream?
 
 #### ThrottleStream: How can we implement it?
 
-If you have experience with streams, you will immediatly think of 
+If you have experience with streams, you will immediately think of 
 Transform-Streams. Should be easy.
 
 But even if you have no experience with Streams, you should not give up.
-A developer learns everyday a new aspect of his progamming language or the
+A developer learns everyday a new aspect of his programming language or the
 runtime he uses.
 
-Should you now deepdive into the nodejs documentation about streams?
+Should you now deep dive into the nodejs documentation about streams?
 Why not. Knowing the technique behind it is key. But in my opinion you will be
 not closer to a solution. And you will not be closer to the second question,
 regarding fastify.
@@ -84,8 +84,8 @@ Conclusion: We have found our potential ThrottleStream candidate.
 Till now we did not write any code. Now the time has come to write our first proof
 of concept. 
 
-So now we check the fastify documentation. We dont want to change fastify
-core if it is not necessary. Fastify provides hooks to modify its behaviour. So 
+So now we check the fastify documentation. We don't want to change fastify
+core if it is not necessary. Fastify provides hooks to modify its behavior. So 
 we have to read the documentation about [hooks](https://fastify.dev/docs/latest/Reference/Hooks/).
 We need to hook later in the request-lifecycle and have the payload. 
 The `onResponse`-hook does not have the payload, but the `onSend`-hook has.
@@ -121,10 +121,10 @@ We open http://127.0.0.1:3000/ in the browser and see the message:
 `{"status":"ok"}`. Now we check the stdout of the nodejs process and see
 `{ isStream: false }`. Payload is not a stream. 
 
-Is it the end of our jourrney? As you see that this blog post is much longer,
+Is it the end of our journey? As you see that this blog post is much longer,
 you can confidently say no.
 
-But what if we send a readstream? We change our `example-throttle.js` accordingly:
+But what if we send a ReadStream? We change our `example-throttle.js` accordingly:
 
 ```js
 'use strict'
@@ -170,7 +170,7 @@ fastify.addHook('onSend', (request, reply, payload, done) => {
     // throttle the stream to 1kb/s
     const throttleStream = new ThrottleStream({ bps: 1024 })
     payload.pipe(throttleStream)
-    // pass the throttleSteam as payloa
+    // pass the throttleSteam as payload
     done(null, throttleStream)
     return
   }
@@ -207,9 +207,9 @@ strings, Buffers and other non-stream-objects, we can transform them first to a 
 and then pass them to the `ThrottleStream`. 
 In my opinion it is for the first iteration enough to handle streams. Because, lets be 
 honest, in which cases do we actually need throttling? Were in the wild do we see throttled
-downloads? One-Click-Hosters and Video-Streaming-Platforms. They dont throttle the output
+downloads? One-Click-Hosters and Video-Streaming-Platforms. They don't throttle the output
 of their rest api calls, but they throttle their file downloads.
-We can assume, that devs, who want to throttle downloads, will use it for file downloads.
+We can assume, that developers, who want to throttle downloads, will use it for file downloads.
 
 So our scope regarding what to throttle got clear.
 
@@ -217,13 +217,13 @@ So our scope regarding what to throttle got clear.
 
 We know now, that throttling is possible and what type of requests we want to throttle.
 But we have to take another round of research. Just because we maybe add a feature to throttle,
-doesnt mean that other devs will use it. Consumer of plugins have the expectation, that their
+doesn't mean that other developers will use it. Consumer of plugins have the expectation, that their
 use case is already covered or is possible to be realized with a reasonable amount of work.
 
-We need to cover atleast the most basic use cases of the feature. The feature needs to
+We need to cover at least the most basic use cases of the feature. The feature needs to
 be easily configurable. 
 
-We need to find out the pain points devs have usually with thottling. 
+We need to find out the pain points developers have usually with throttling. 
 
 First of all, we open again the npm package and search for the throttle stream packages and
 visit the corresponding github/gitlab repository pages and look, which options and/or 
@@ -249,7 +249,7 @@ the second parameter the bytes already sent.
 
 You want a burst mode where you send e.g. 5 Mb in the first 3 seconds and then only 100kb/s? 
 Then define a function which exactly does this. 
-You want a letancy of 1 second? Define a function, which returns 0 for the first second and
+You want a latency of 1 second? Define a function, which returns 0 for the first second and
 then the preferred speed.
 
 #### ThrottleGroups
@@ -279,8 +279,8 @@ implementations are time based. A stream starts, sets a `startDate` and then bas
 elapsed time it calculates how much data a user could download since the `startDate`.
 This results in a sudden speed burst. 
 
-We have to keep in mind, that a rate-limitting or a speed throttle is a protection against
-resource exhaustion. You have a limitted amount of traffic and want to provide all users
+We have to keep in mind, that a rate-limiting or a speed throttle is a protection against
+resource exhaustion. You have a limited amount of traffic and want to provide all users
 of your server a good experience, but power users should not be able to degrade the server
 performance and thus effecting the experience of normal users.
 
@@ -293,5 +293,5 @@ So we should make the ThrottleStream resilient against such cases.
 If you have a highly maintained package and a healthy community, it makes sense to use
 their packages. But we have here unmaintained packages and basically no progress in features.
 
-Also I want to be sure, that everything is under controle and doesnt have any side effects.
+Also I want to be sure, that everything is under control and doesn't have any side effects.
 So I tend to integrate the package.
