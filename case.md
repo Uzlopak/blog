@@ -292,6 +292,93 @@ So we should make the ThrottleStream resilient against such cases.
 
 If you have a highly maintained package and a healthy community, it makes sense to use
 their packages. But we have here unmaintained packages and basically no progress in features.
+Also using existing packages makes sense, when the feature you want to provide has nothing
+to do with a http server related technology. Sure. Everything is http related in fastify.
+But for example I would not consider connecting to an external service as a core http
+technology.
+In our case we want to throttle the download speed in a fastify server. We have to ensure
+that it works flawless. 
 
-Also I want to be sure, that everything is under control and doesn't have any side effects.
-So I tend to integrate the package.
+I want to be sure, that everything is under control and doesn't have any side effects.
+So I want to integrate the functionality. We can ensure that we have 100% test coverage
+and we can manipulate the existing ThrottleStream for our needs.
+
+#### ThrottleStream: Implementing our own solution
+
+There are two approaches for ThrottleStream:
+1. Write our own TransformStream with throttling functionality
+2. Use the `throttle`-npm as a blue print.
+
+I first tried to implement a custom ThrottleStream.
+Programming is not about only copying code and claim it to be your own. We talk here
+about computer science, where we want to implement a state-of-the-art-solution.
+
+Unfortunately it was not that easy. After few hours of playing around and writing code,
+I realized, that it is not a trivial task. Sure, I could have invested few days, to
+implement it and have my own solution. But was it really worth it?
+
+Well, there were some issues I had to tackle. For example, I thought I had a correct
+solution just to realize, that the throttle would get faster and faster or slower
+and slower. 
+
+Just that you maybe get an idea, what you should do if you have issues like that:
+I consulted chatgpt ;)
+![image](https://github.com/Uzlopak/blog/assets/5059100/3509b816-deb1-4dfb-bd36-ccf747044625)
+
+![image](https://github.com/Uzlopak/blog/assets/5059100/8da161d1-37cf-434a-9ffe-e245723ea19e)
+
+The explaination was totally correct. But the code it provided to solve that issue
+on the other hand was not. 
+
+I wanted to get closer to a solution. So I decided to take the existing `throttle` npm
+as a blueprint. 
+
+#### ThrottleStream: Refactoring `throttle`
+
+First things first: We need to first implement tests. Fortunately `throttle` had simple
+tests. So I took analyzed them and they were written in mocha. So I adapted them
+and rewrote them in `tap`. 
+
+Then I copied the code from `throttle` into the `/lib` folder of the project. `throttle` code
+was old, meaning, that it was written for node 6 or 8. For example back in those days,
+Buffers where initialized with `new Buffer()`, nowadays you would use `Buffer.alloc()`.  Also
+`throttle` is using a npm package called `stream-parser`, which is also written by TooTallNate,
+to handle the data processing. Also it uses the `debug` package, which can be replaced
+with `debugLog` from nodejs own `util` module.
+
+So with the tests and the code it is possible to refactor. First I integrate the code of
+`stream-parser` to the `ThrottleStream` code. Testing reveals alot of uncovered branches.
+This indicates it has alot of unnecessary code. We can not just delete uncovered branches,
+and be happy, that the test coverage is 100%. You have to actually understand, what the code
+is actually doing and if it is not used in any of our use cases, it can be removed.
+
+This process took for me quiete some time. I would estimate the time to be about 12 hours.
+When I started the `ThrottleStream` had about 160 LOC from `stream-parser` and about 55 LOC
+from `throttle`. When I finished, `ThrottleStream` was about 100 LOC. 
+
+To describe what I did in detail would be imho boring and lengthy. It was constant refactoring.
+Remove this or that attribute of `ThrottleStream`, remove methods, integrate code from here to
+there, optimize, precalculate values, etc. etc..
+
+#### Tools for refactoring and optimizing code
+
+I love `sonarqube`. Spin up sonarqube and scan the codebase. It reports code smells and
+security hotspots. Fixing code smells is useful.
+
+Also the use of `chatgpt` makes in some cases sense.
+Ask chatgpt a question and provide the code. You will get detailed insights. But dont trust
+the code it provides, it is mostly garbage. For example I asked chatgpt if a 
+if-condition is always true, and chatgpt determined yes and explained it. I verified the
+explaination and could remove the if-condition.
+
+The tool `deoptigate` is also very nice in analyzing deoptimizations. I would use
+the example script and use a small file. Run `deoptigate` with the example and start
+`autocannon` on the correct url. After 10 seconds of hitting the server hard,
+you stop the `deoptigate` process and it shows you deoptimzations. `ThrottleStream`
+had no reported deoptimizations. In my opinion `deoptigate` works best with node 14. 
+
+The tool `0x` is used similar to `deoptigate`, run `0x` with the `-o`-flag and hit
+the server with `autocannon`. You should see the hot paths and the optimized
+functions. Optimizing the hot paths should be done early, because solving them
+later could mean more work.
+
