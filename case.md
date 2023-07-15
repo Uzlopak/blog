@@ -336,8 +336,8 @@ as a blueprint.
 #### ThrottleStream: Refactoring `throttle`
 
 First things first: We need to first implement tests. Fortunately `throttle` had simple
-tests. So I took analyzed them and they were written in mocha. So I adapted them
-and rewrote them in `tap`. 
+tests. So I analyzed them and saw that they were written in mocha. So I adapted them
+and rewrote them to use `tap`. 
 
 Then I copied the code from `throttle` into the `/lib` folder of the project. `throttle` code
 was old, meaning, that it was written for node 6 or 8. For example back in those days,
