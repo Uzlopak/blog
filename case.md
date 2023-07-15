@@ -198,7 +198,7 @@ It is successfully throttling the request!
 #### Conclusion: Are we there yet?
 
 We have now the knowledge, that throttling of requests is possible. Only limitation is
-that we can just throttle streams.
+currently that we can just throttle streams.
 This needs a consideration: Is it enough to support throttling of steams? Or how does it fit
 in the fastify lifecycle. If we look at the lifecycle of a request, we see that we have a
 `preSerialization` lifecycle stage. So the payload we get in the `onSend` hook should
@@ -211,11 +211,69 @@ downloads? One-Click-Hosters and Video-Streaming-Platforms. They don't throttle 
 of their rest api calls, but they throttle their file downloads.
 We can assume, that developers, who want to throttle downloads, will use it for file downloads.
 
-So our scope regarding what to throttle got clear.
+But we know already, that we just need to transform Buffers and strings to streams.
+
+So next iteration of the `example-throttle.js`
+
+```js
+'use strict'
+
+const { createReadStream } = require('fs')
+const {Readable} = require('stream')
+const { resolve } = require('path')
+const ThrottleStream = require('throttle')
+
+const fastify = require('fastify')()
+
+fastify.addHook('onSend', (request, reply, payload, done) => {
+  if (payload && payload.pipe) {
+    const throttleStream = new ThrottleStream({ bps: 1000 })
+    payload.pipe(throttleStream)
+    done(null, throttleStream)
+    return
+  } else if (typeof payload === 'string') {
+    const throttleStream = new ThrottleStream({ bps: 1000 })
+    Readable.from(Buffer.from(payload)).pipe(throttleStream)
+    done(null, throttleStream)
+    return
+  } else if (Buffer.isBuffer(payload)) {
+    const throttleStream = new ThrottleStream({ bps: 1000 })
+    Readable.from(payload).pipe(throttleStream)
+    done(null, throttleStream)
+    return
+  }
+  done(null, payload)
+})
+
+fastify.get('/string', (req, reply) => {
+  reply.send(Buffer.allocUnsafe(1024 * 1024).toString('ascii'))
+})
+
+fastify.get('/buffer', (req, reply) => {
+  reply.send(Buffer.allocUnsafe(1024 * 1024))
+})
+
+fastify.get('/stream', (req, reply) => {
+  reply.send(createReadStream(resolve(__dirname, '../test/fixtures/output.file')))
+})
+
+fastify.get('/pojo', (req, reply) => {
+  const payload = Array(1000).fill(0).map(v => (Math.random() * 1e6).toString(36))
+  reply.send({payload})
+})
+
+fastify.listen({ port: 3000 })
+```
+
+You can now test each route and see, that we properly throttle on each
+route.
+
+So our scope regarding what to throttle got clear and we know that
+throttling is fully possible.
 
 ### More Research: What is feature completeness?
 
-We know now, that throttling is possible and what type of requests we want to throttle.
+We know now, that throttling is fully possible.
 But we have to take another round of research. Just because we maybe add a feature to throttle,
 doesn't mean that other developers will use it. Consumer of plugins have the expectation, that their
 use case is already covered or is possible to be realized with a reasonable amount of work.
