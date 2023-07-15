@@ -382,3 +382,22 @@ the server with `autocannon`. You should see the hot paths and the optimized
 functions. Optimizing the hot paths should be done early, because solving them
 later could mean more work.
 
+To some extent you can use `typescript`. Create a `tsconfig.json` in your project,
+with the following content:
+
+```json
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true
+  }
+}
+```
+
+Now vscode will use typescript to show potential issues. It works better if you add
+jsdoc annotations to your code. But it is far from perfect, e.g. I dont use `class`
+but prototypical based inheritance for `ThrottleStream`, and that is not supported
+properly by typescript. 
+
+
