@@ -208,15 +208,15 @@ and then pass them to the `ThrottleStream`.
 In my opinion it is for the first iteration enough to handle streams. Because, lets be 
 honest, in which cases do we actually need throttling? Were in the wild do we see throttled
 downloads? One-Click-Hosters and Video-Streaming-Platforms. They dont throttle the output
-of their usual rest api calls, but they throttle their file downloads.
+of their rest api calls, but they throttle their file downloads.
 We can assume, that devs, who want to throttle downloads, will use it for file downloads.
 
 So our scope regarding what to throttle got clear.
 
-### More Research: What is feature complete?
+### More Research: What is feature completeness?
 
-We know now, that throttling is possible and what type of requests we want to throttle, 
-we have to take another round of research. Just because we maybe add a feature to throttle,
+We know now, that throttling is possible and what type of requests we want to throttle.
+But we have to take another round of research. Just because we maybe add a feature to throttle,
 doesnt mean that other devs will use it. Consumer of plugins have the expectation, that their
 use case is already covered or is possible to be realized with a reasonable amount of work.
 
@@ -239,19 +239,52 @@ I found following relevant issues:
 - `ThrottleStream` should be able to have a delay, [[5]](https://github.com/TooTallNate/node-throttle/pull/7), or latency [[6]](https://github.com/tjgq/node-stream-throttle/issues/1)
 - `ThrottleStream` should have a "ThrottleGroup", [[7]](https://github.com/tjgq/node-stream-throttle/blob/master/src/throttle.js)
 
+#### Controlling the throttle-speed
+
 The first three issues can be solved by a "easing" functionality. Do you remember jquery-ui
 and its [easing functionality](https://jqueryui.com/easing/)? So what we maybe need is to
-add an easing option to `ThrottleStream`. We could decide that we call the option `rate` and
-pass a function to it. First parameter is the time since the transfer started.
+add an easing option to `ThrottleStream`. We could decide that we extend the `bps` option to
+be able to pass a function to it. First parameter is the time since the transfer started and
+the second parameter the bytes already sent.
 
 You want a burst mode where you send e.g. 5 Mb in the first 3 seconds and then only 100kb/s? 
 Then define a function which exactly does this. 
 You want a letancy of 1 second? Define a function, which returns 0 for the first second and
 then the preferred speed.
 
+#### ThrottleGroups
+
 ThrottleGroups on the other hand, should not be realized in the ThrottleStream itself.
-ThrottleStream should not know about othe ThrottleStream but should be controlle by
+ThrottleStream should not know about other ThrottleStreams but should be controlled by
 fastify-rate-limit.
+
+In case of a fastify plugin we have to consider, that a feature will be potentially
+used in multiple instances of fastify behind a reverse proxy/load balancer. If so, it has
+to be implemented in a resilient way. 
+
+In case of throttling of huge file streams, we can consider the use of download managers.
+Of course we can use the original rate limiting feature and allow only 1 request of the 
+route. But we should also be able to throttle over multiple fastify instances.
+
+If we can provide a function to the `bps` option, then we can actually set the `bytes`
+by loading the value from a store.
+
+So we will implement `ThrottleGroups` in an indirect way.
+
+#### Avoiding unexpected bursts
+
+Also one feature, which I did not find in issues and pull requests, is the fact, that a
+user could pause a download while keeping the connection alive. Usually `ThrottleStream`
+implementations are time based. A stream starts, sets a `startDate` and then based on the
+elapsed time it calculates how much data a user could download since the `startDate`.
+This results in a sudden speed burst. 
+
+We have to keep in mind, that a rate-limitting or a speed throttle is a protection against
+resource exhaustion. You have a limitted amount of traffic and want to provide all users
+of your server a good experience, but power users should not be able to degrade the server
+performance and thus effecting the experience of normal users.
+
+So we should make the ThrottleStream resilient against such cases. 
 
 ### Enough Research. Time for Development
 
