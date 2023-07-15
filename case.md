@@ -93,7 +93,7 @@ We need to utilize the `onSend`-hook, but is the payload a stream?
 
 To investigate this, the best approach is to check if the package we want to add
 the feature contains examples. The examples in fastify-rate-limit are not simple,
-so we create a new one `example-thottle.js`.
+so we create a new one `example-throttling.js`.
 
 ```js
 'use strict'
@@ -113,7 +113,7 @@ fastify.get('/', (req, reply) => {
 fastify.listen({ port: 3000 })
 ```
 
-The `example-throttle.js` is currently not handling the throttling, but as we
+The `example-throttling.js` is currently not handling the throttling, but as we
 are writing our solution, it will change over time. And in the end it should
 be a real example on how to throttle requests. 
 
@@ -124,7 +124,7 @@ We open http://127.0.0.1:3000/ in the browser and see the message:
 Is it the end of our journey? As you see that this blog post is much longer,
 you can confidently say no.
 
-But what if we send a ReadStream? We change our `example-throttle.js` accordingly:
+But what if we send a ReadStream? We change our `example-throttling.js` accordingly:
 
 ```js
 'use strict'
@@ -148,13 +148,13 @@ fastify.get('/', (req, reply) => {
 fastify.listen({ port: 3000 })
 ```
 
-We open again http://127.0.0.1:3000/ and see the content of the `example-throttle.js`. 
+We open again http://127.0.0.1:3000/ and see the content of the `example-throttling.js`. 
 In the stdout of the nodejs process we see `{ isStream: true }`.
 
 Perfect. We know now, that it is in some cases a stream. 
 
 Now we need to install `throttle` by doing an `npm i throttle` and change again the 
-`example-throttle.js`. 
+`example-throttling.js`. 
 
 ```js
 'use strict'
@@ -205,15 +205,15 @@ in the fastify lifecycle. If we look at the lifecycle of a request, we see that 
 already be validated and enriched with all the data it needs. So if we need to support
 strings, Buffers and other non-stream-objects, we can transform them first to a stream,
 and then pass them to the `ThrottleStream`. 
-In my opinion it is for the first iteration enough to handle streams. Because, lets be 
+In my opinion it would be enough for the first iteration to handle streams. Because, lets be 
 honest, in which cases do we actually need throttling? Were in the wild do we see throttled
 downloads? One-Click-Hosters and Video-Streaming-Platforms. They don't throttle the output
 of their rest api calls, but they throttle their file downloads.
-We can assume, that developers, who want to throttle downloads, will use it for file downloads.
+We can assume, that developers will use it for throttling file downloads.
 
 But we know already, that we just need to transform Buffers and strings to streams.
 
-So next iteration of the `example-throttle.js`
+So next iteration of the `example-throttling.js`
 
 ```js
 'use strict'
@@ -268,8 +268,10 @@ fastify.listen({ port: 3000 })
 You can now test each route and see, that we properly throttle on each
 route.
 
-So our scope regarding what to throttle got clear and we know that
-throttling is fully possible.
+We know now that throttling is fully possible. It is actually just a small 
+change, so we can implement it already in the first iteration.
+
+So our scope regarding what to throttle is clear.
 
 ### More Research: What is feature completeness?
 
@@ -327,7 +329,7 @@ route. But we should also be able to throttle over multiple fastify instances.
 If we can provide a function to the `bps` option, then we can actually set the `bytes`
 by loading the value from a store.
 
-So we will implement `ThrottleGroups` in an indirect way.
+So we could implement `ThrottleGroups` in an indirect way.
 
 #### Avoiding unexpected bursts
 
@@ -342,7 +344,7 @@ resource exhaustion. You have a limited amount of traffic and want to provide al
 of your server a good experience, but power users should not be able to degrade the server
 performance and thus effecting the experience of normal users.
 
-So we should make the ThrottleStream resilient against such cases. 
+So we should make the ThrottleStream if possible resilient against such cases. 
 
 ### Enough Research. Time for Development
 
@@ -458,4 +460,79 @@ jsdoc annotations to your code. But it is far from perfect, e.g. I dont use `cla
 but prototypical based inheritance for `ThrottleStream`, and that is not supported
 properly by typescript. 
 
+#### Integrating ThrottleSteam into fastify-rate-limit
 
+Now that we have a `ThrottleStream` implementation, it is possible to integrate
+it into @fastify/rate-limit. 
+
+##### Typings shape the api contract
+
+I usually start the integration with the typescript definitions. This has the
+benefit, that we actually agree an "api contract". We define what options we
+expect to activate the plugin. 
+Fastify Plugins are usually configured two ways:
+1. at plugin registration via the plugin options
+2. per route options when registering the route.
+
+Usually the typings of the route options are also used for the typings of the
+plugin options. So we should first modify the route options and then check if
+the route options are also used by the plugin options.
+
+When designing the api contract, you should keep backwards compatibility for
+upcoming features in mind. In my first iteration I want just pass the `bps`
+option. For this I will create a new attribute called `throttle` in the options.
+`throttle` is an object, where i add the `bps` attribute accordingly. If
+we add more feature in the future, we just need to extend the `throttle`
+object.
+The other option would be adding multiple options to the root of the options
+interface. But as you can see, the options interface is already very big.
+To manage them is already hard. So if I would add a new option on the root,
+I would prefix them with `throttle`, so it would be `throttleBps`. I dont
+like it, and in my opinion an object for `throttle` is the better solution.
+
+After we added the typings, we need to add typings tests. Usually we use `tsd`
+for typings tests. Basically look for the *.test-d.ts files and add your 
+typings test to it. 
+
+#### Integrate ThrottleStream - make it configurable
+
+We have already our solution. It is in our `example-throttling.js`.
+We only need to add the `onSend` hook handler to the routeOptions of the routes
+accordingly. 
+
+We create a new function called `throttleOnSendHandler` which gets 
+`throttleOptions` as a parameter. We take the `onSend` hook handler from our
+example return it in the `throttleOnSendHandler` but pass the 
+`throttleOptions` to the initialization call of `ThrottleStream`.
+
+We search for `addHook('onRoute')` in the `index.js`. This is the place to
+manipulate the options of each route and add the `onSend` hook handler if it is
+configured accordingly. 
+
+So basically check if the routeOptions or the pluginOptions have the throttle
+options configured and add it to the `onSend` attribute to the routeOptions
+of the `onRoute` hook. But keep in mind that the `onSend` option can be 
+undefined, a function or an Array of functions.
+
+We create a new function called `addRouteThrottleHook`, which expects
+the `routeOptions` of the `onRoute` hook handler and `throttleOptions`
+as parameters. We check the value of the `onSend` attribute on the
+`routeOptions`. If the `onSend` attribute is undefined, we just assign the
+result of `throttleOnSendHandler` to it. If it is a function we create a
+new Array with the original value and add the result of the `throttleOnSendHandler`
+as second value. And if the value of `onSend` attribute is an Array we
+just push the result of the `throttleOnSendHandler` to it.
+
+In the `onRoute` hook handler we extract the `throttleOptions` and call
+`addRouteThrottleHook`. 
+
+Thats it. 
+
+Of course we write additional tests to ensure that our solution works. 
+
+#### Documentation
+
+It doesnt matter, how good your implementation is. If the documentation is missing,
+your solution is just a blackbox and nobody will use it confidently.
+
+So we edit the Readme.md. 
